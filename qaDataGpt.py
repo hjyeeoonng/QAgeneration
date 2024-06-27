@@ -1,6 +1,7 @@
 # blip2를 이용해 captioning을 한 데이터를 바탕으로 qa 데이터를 생성하는 코드입니다.
 import csv
 import re
+import os
 import json
 import base64
 import mimetypes
@@ -183,6 +184,28 @@ def get_prompt_for4_direction_5():
 
     return prompt
 
+#gpt 4를 위한 자세한 디렉션(오브젝트 언급 자제)이 있는 프롬프트를 작성하는 함수 - 5개
+def get_prompt_for4_direction_5_noobject():
+
+    instruction = """You are a chatbot who makes QA with caption data. If you're given captions, please create 5 creative QAs for them. The captions are for a drawing with black pen on a white background. The template must be in json form. For example, 
+    { "Q" : "[null,null,null,null,null]", "A" : "[null,null,null,null,null]" }
+    You just have to fill in the null here.
+
+    Be aware that it must be exactly the same as the format given
+    given format : { "Q" : "["Q1","Q2","Q3","Q4","Q5"]", "A" : "["A1","A2","A3","A4","A5"]" }
+
+    When generating questions and answers, refer to the delivered image to generate questions and answers.
+
+    And when forming QA, you should not ask questions related to the color of the drawing. And the object name or class name of the drawing cannot be used in qusetion.
+
+    In the drawing, it is important to ask what accessories the object is wearing or not. It does not have to be an accessory, and questions about the object and the object expressed in the drawing are preferred. Whether there is an object or not, what object it is in detail (e.g., cap, fedora, sun cap, ball cap, etc.), where it is, etc. Just refer to the explanation, and write a question creatively. You don't have to focus too much on accessories.
+    """
+    example = ""
+
+    prompt = instruction + example
+
+    return prompt
+
 #gpt 4를 위한, 캡션이 없는 프롬프트를 작성하는 함수
 def get_prompt_for4_nocaption():
 
@@ -256,13 +279,12 @@ for i in read_data('blip2_captioning.csv', 1)[1:]:
     else:
         get_exception(i[1], response)
 '''
-
-for i in read_data('data/blip2_captioning.csv', 1)[1:]:
-    print(i[0])
-    base64_image = encode_image("C:/Users/User/Desktop/QA/data/sketch/original/train/"+i[0]+".png")
+#데이터 생성 1
+for i in read_data('exception0627testwithobject_2.csv', 1)[:]:
+    base64_image = encode_image("C:/Users/User/Desktop/QA/data/sketch/original+acc/test/"+i[0]+".png")
     drawingclass = i[0].split('(')[0]
     print(drawingclass)
-    response = get_gpt_response_for4(get_prompt_for4_direction_5(), drawingclass, base64_image)
+    response = get_gpt_response_for4(get_prompt_for4_direction_5_noobject(), drawingclass, base64_image)
     print(response)
     pattern = r'\{[^}]*\}'
     res = re.findall(pattern, response)
@@ -270,19 +292,50 @@ for i in read_data('data/blip2_captioning.csv', 1)[1:]:
     if len(res)==1:
         try:
             json_data = json.loads(res[0])
-            get_QA(i[0],i[1],json_data["Q"][0],json_data["A"][0])
-            get_QA(i[0],i[1],json_data["Q"][1],json_data["A"][1])
-            get_QA(i[0],i[1],json_data["Q"][2],json_data["A"][2])
-            get_QA(i[0],i[1],json_data["Q"][3],json_data["A"][3])
-            get_QA(i[0],i[1],json_data["Q"][4],json_data["A"][4])
+            get_QA(i[0],'nocaption',json_data["Q"][0],json_data["A"][0])
+            get_QA(i[0],'nocaption',json_data["Q"][1],json_data["A"][1])
+            get_QA(i[0],'nocaption',json_data["Q"][2],json_data["A"][2])
+            get_QA(i[0],'nocaption',json_data["Q"][3],json_data["A"][3])
+            get_QA(i[0],'nocaption',json_data["Q"][4],json_data["A"][4])
         except:
-            get_exception(i[0],i[1], response)
+            get_exception(i[0],'nocaption', response)
     elif len(res)==5:
         try:
             for j in res:
                 json_data = json.loads(j)
-                get_QA(i[0],i[1],json_data["Q"],json_data["A"])
+                get_QA(i[0],'nocaption',json_data["Q"],json_data["A"])
         except:
-            get_exception(i[0],i[1], response)
+            get_exception(i[0],'nocaption', response)
     else:
-        get_exception(i[0],i[1], response)
+        get_exception(i[0],'nocaption', response)
+
+'''#데이터 생성 2
+folder_path = 'C:/Users/User/Desktop/QA/data/sketch/original+acc/test'
+file_names = os.listdir(folder_path)
+
+for i in file_names[:]:
+    base64_image = encode_image("C:/Users/User/Desktop/QA/data/sketch/original+acc/test/"+i)
+    drawingclass = i[0].split('(')[0]
+    response = get_gpt_response_for4(get_prompt_for4_direction_5(), drawingclass, base64_image)
+    pattern = r'\{[^}]*\}'
+    res = re.findall(pattern, response)
+    if len(res)==1:
+        try:
+            json_data = json.loads(res[0])
+            get_QA(i[:-4],'nocaption',json_data["Q"][0],json_data["A"][0])
+            get_QA(i[:-4],'nocaption',json_data["Q"][1],json_data["A"][1])
+            get_QA(i[:-4],'nocaption',json_data["Q"][2],json_data["A"][2])
+            get_QA(i[:-4],'nocaption',json_data["Q"][3],json_data["A"][3])
+            get_QA(i[:-4],'nocaption',json_data["Q"][4],json_data["A"][4])
+        except:
+            get_exception(i[:-4],'nocaption', response)
+    elif len(res)==5:
+        try:
+            for j in res:
+                json_data = json.loads(j)
+                get_QA(i[:-4],'nocaption',json_data["Q"],json_data["A"])
+        except:
+            get_exception(i[:-4],'nocaption', response)
+    else:
+        get_exception(i[:-4],'nocaption', response)'''
+        
